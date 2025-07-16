@@ -1,24 +1,24 @@
 [[source]]
-verify_ssl = true
 url = "https://pypi.org/simple"
+verify_ssl = true
 name = "pypi"
 
 [packages]
-google-api-python-client = "==2.37.0"
-google-cloud-bigquery = "==2.32.0"
-grpcio = "==1.43.0"
-oauth2client = "==3.0.0"
-confuse = "==1.7.0"
-slackclient = "==1.3.1"
-requests = "==2.27.1"
-functions-framework= "==3.*"
-
-[requires]
-python_version = "3.8"
+google-api-python-client = "*"
+google-cloud-bigquery = "*"
+grpcio = "*"
+google-auth-oauthlib = "*"
+confuse = "*"
+slack-sdk = "*"
+requests = "*"
+functions-framework= "*"
 
 [dev-packages]
-pytest = "==7.0.0"
-pytest-mock = "==3.7.0"
+pytest = "*"
+pytest-mock = "*"
 coverage = "*"
 pylint = "*"
 rope = "*"
+
+[requires]
+python_version = "3.13"
