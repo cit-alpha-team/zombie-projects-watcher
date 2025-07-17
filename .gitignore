@@ -569,6 +569,6 @@ $RECYCLE.BIN/
 **/service_account.json
 report.xml
 result.json
-config.yaml
+
 docs/*.pdf
 deploy.sh
