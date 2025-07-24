@@ -178,11 +178,6 @@ gcloud auth application-default login
 gcloud config set project YOUR_PROJECT_ID
 ```
 
-Alternatively, you can use a service account key:
-
-```bash
-export GOOGLE_APPLICATION_CREDENTIALS='path/to/your/service-account-key.json'
-```
 
 **Execution:**
 Use `pipenv` to run the main script within the correct virtual environment.
