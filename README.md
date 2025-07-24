@@ -1,73 +1,219 @@
+Claro\! Aqui está a documentação completa, formatada em Markdown, pronta para ser copiada e colada como o novo `README.md` do seu projeto no GitHub.
+
+-----
+
 # Zombie Projects Watcher
 
-Helps your team control infra costs by pointing potential unused 'zombie' projects.
+## Introduction
 
-If you use the Slack integration, the Owners of the Projects receive messages like this one:
+Zombie Projects Watcher is an automation tool designed to help engineering and finance teams control infrastructure costs on Google Cloud. It identifies potentially unused ("zombie") projects based on criteria such as age and cost, and proactively notifies the owners via Google Chat, encouraging clean-up and reducing waste.
 
-![Example Slack message](example-slack-message.png?raw=true "Example Slack message")
+The tool operates as a Cloud Function, which can be triggered via HTTP and scheduled for periodic execution (e.g., daily or weekly) using Cloud Scheduler.
 
-If you use the Google Chat integration, messages similar to this one are sent to your Chat Space:
+**Notification Example (Google Chat):**
 
-![Example Chat message](example-chat-message.png?raw=true "Example Chat message")
+## Requirements
 
-## Installation
+Before you configure and deploy the Zombie Projects Watcher, ensure your environment meets the following requirements:
 
-### Dependencies and Config
+  * **Google Cloud Project**: A Google Cloud project to host the Cloud Function and Cloud Scheduler.
+      * **Billing Enabled**: Billing must be enabled for the project.
+      * **APIs Enabled**: The following APIs must be enabled in your project:
+          * Cloud Functions API
+          * Cloud Run Admin API
+          * Cloud Build API
+          * Cloud Scheduler API
+          * Cloud Resource Manager API
+          * BigQuery API
+          * IAM API
+  * **Local Environment**:
+      * **Python**: Version 3.12 or higher.
+      * **pipenv**: For dependency management.
+      * **Google Cloud SDK**: The `gcloud` command-line tool, configured and authenticated.
+  * **Billing Data in BigQuery**: You must have your Cloud Billing data exporting to a BigQuery dataset. See the prerequisite section below for instructions.
 
-Clone this repository.
+## Prerequisite: Setting Up Billing Data in BigQuery
 
-Install Python dependencies and prepare the config file:
+The tool's ability to report on costs depends on having access to your detailed billing data. This is achieved by exporting your Cloud Billing data to a BigQuery dataset and then creating a specific `VIEW` for the tool to query.
+
+### Step 1: Enable Cloud Billing Export to BigQuery
+
+If you haven't done so already, you need to enable the detailed billing data export. This process sends a daily record of your Google Cloud usage and costs to a BigQuery dataset you specify.
+
+For detailed instructions, follow the official Google Cloud guide: [Set up Cloud Billing data export to BigQuery](https://cloud.google.com/billing/docs/how-to/export-data-bigquery).
+
+### Step 2: Create the Cost Aggregation View
+
+Once your billing data is exporting, create a BigQuery `VIEW`. A view is a virtual table based on the result of an SQL query. This provides a simplified and efficient way for the bot to get the exact cost data it needs.
+
+1.  Navigate to the **BigQuery** section in the Google Cloud Console.
+2.  Select the project where your billing export is located.
+3.  Open the SQL query editor.
+4.  Paste the query below, making sure to **update the table name in the `FROM` clause** to match your billing export table.
+5.  Click **"Save"** and choose **"Save view"**. Give it the name that you will later specify in your `config.yaml` (e.g., `costs_per_project`).
+
+**SQL Query to Create the View:**
+
+```sql
+SELECT
+    '01AAD1-616217-97513A' AS billing_account_name
+,   billing_account_id
+,   project.id AS project_id
+,   ROUND(SUM(cost), 2) AS cost_generated
+,   currency
+,   DATE_SUB(DATE_TRUNC(current_date, MONTH), INTERVAL 1 MONTH) AS cost_reference_start_date
+FROM
+    `billing-export-scc-tools-2.billing.gcp_billing_export_v1_01AAD1_616217_97513A`
+WHERE
+    project.id IS NOT NULL
+    -- the cost occurred after cost_reference_start_date (first day of previous month)
+    AND PARSE_DATE("%Y-%m-%d", FORMAT_TIMESTAMP("%Y-%m-%d", usage_start_time))
+          >= DATE_SUB(DATE_TRUNC(current_date, MONTH), INTERVAL 1 MONTH)
+GROUP BY
+    billing_account_name
+,   billing_account_id
+,   project.id
+,   currency
+,   cost_reference_start_date
+```
+
+## Configuration
+
+The tool's behavior is controlled entirely by the `config.yaml` file. To get started, copy the example file.
+
+**Command:**
+
+```bash
+cp example-config.yaml config.yaml
+```
+
+Next, edit `config.yaml` with your specific information.
+
+### `config.yaml` Details
+
+This file defines the filters for finding projects, notification integrations, and data sources.
+
+#### `filters` section
+
+Defines the criteria for selecting projects to be analyzed.
+
+  * `orgs`: (Required) A list of numeric Google Cloud organization IDs you wish to monitor.
+  * `age_minimum_days`: (Required) The minimum age, in days, a project must be to be considered a "zombie".
+  * `users_regex`: (Optional) A list of regular expressions (regex) to exclude projects owned by certain users. Useful for ignoring projects from management accounts or executives.
+  * `projects`: (Optional) A list of specific project IDs to ignore during the check.
+
+#### `org_info` section
+
+  * `activate`: Set to `true` to enable the bot to fetch and display the full folder path of the project in notifications.
+
+#### `chat` section
+
+Configures Google Chat notifications.
+
+  * `activate`: Set to `true` to enable the integration.
+  * `print_only`: If `true`, messages will only be printed to the log and not sent. Useful for debugging.
+  * `webhook_url`: The webhook URL for the Google Chat space where messages will be sent.
+  * `cost_min_to_notify`: The minimum amount (in USD) a project must have cost (since the previous month) for a notification to be sent.
+  * `cost_alert_threshold`: A cost value that, if exceeded, adds an alert emoji to the message.
+  * `cost_alert_emoji`: The emoji to use for the cost alert. Use the Unicode hex code (e.g., `'0x1F631'` for 😱).
+  * `users_mapping`: Maps a Google Cloud username (e.g., `johndoe`) to a Chat username (e.g., `john.doe`) so that mentions (`@`) work correctly.
+
+#### `billing` section
+
+Points to your billing data source.
+
+  * `activate`: Set to `true` to include cost information in notifications.
+  * `bigquery_client_project`: The project ID where your BigQuery billing export dataset is located.
+  * `cost_view_full_name`: The full name of the BigQuery view you created in the prerequisite step (format: `project.dataset.view_name`).
+
+#### `org_names_mapping` section
+
+Creates human-readable aliases for your numeric organization IDs.
+
+**Example:**
+
+```yaml
+org_names_mapping:
+  '1055058813388': 'My Tech Company'
+```
+
+This will cause messages to display "My Tech Company" instead of the numeric ID.
+
+## Inputs and Outputs
+
+### Inputs
+
+1.  **Configuration**: The fully populated `config.yaml` file.
+2.  **Google Cloud Data**:
+      * The list of projects, folders, and organizations obtained via the Cloud Resource Manager API.
+      * Cost data obtained from your billing export view in BigQuery.
+
+### Outputs
+
+1.  **Google Chat Notifications**: Formatted messages sent to the owners of projects that meet the "zombie" criteria. The message includes:
+      * Owner's name.
+      * A list of problematic projects.
+      * The full project path (if `org_info` is active).
+      * The project's age in days.
+      * The project's cost since the previous month.
+      * An alert emoji if the cost exceeds `cost_alert_threshold`.
+2.  **(Optional) JSON Dump File**: If the `dump_json_file_name` key is set in `config.yaml`, a JSON file containing all enriched project data will be saved locally.
+
+## Installation and Usage
+
+### 1\. Install Dependencies
+
+Clone the repository, install dependencies using `pipenv`, and create your configuration file from the example.
 
 ```bash
 pipenv install --ignore-pipfile --dev
 cp example-config.yaml config.yaml
 ```
 
-Change `config.yaml` to fit your needs.
+### 2\. Usage as a Local Command (CLI)
 
-### Usage as a CLI command
+For testing and manual runs, you can execute the script directly from your machine.
 
+**Authentication:**
+First, authenticate your user account so the script has the necessary permissions.
 
-If you want to execute the program using your GCP user credentials, use the commands below:
 ```bash
 gcloud auth application-default login
-gcloud config set project PROJECT_ID
+gcloud config set project YOUR_PROJECT_ID
 ```
 
-Instead of using your GCP user credentials, you can use a Service Account Key. In this case, use the following command:
+Alternatively, you can use a service account key:
 
 ```bash
-export GOOGLE_APPLICATION_CREDENTIALS='service-account-key.json'
+export GOOGLE_APPLICATION_CREDENTIALS='path/to/your/service-account-key.json'
 ```
 
-Run the following command:
+**Execution:**
+Use `pipenv` to run the main script within the correct virtual environment.
 
 ```bash
 pipenv run python main.py
 ```
 
-If you have created an API token for the Slack integration, execute the following commands:
+### 3\. Deployment as a Google Cloud Function
+
+For automation, the recommended method is to deploy the code as a Cloud Function.
+
+**Deploy Command:**
+Run the command below in your terminal from the project's root folder. Replace the values as needed.
 
 ```bash
-export SLACK_API_TOKEN=<your Slack API token>
-pipenv run python main.py
-```
-
-See the `example-bigquery-billing-costs-view.sql` file of an example query to use for adding Project cost information from your [Billing Export](https://cloud.google.com/billing/docs/how-to/export-data-bigquery) data in BigQuery.
-
-### Usage as a Google Cloud Function
-
-If you want to deploy the code as a Cloud Function, run the following command:
-
-```bash
-gcloud functions deploy zombie-project-watcher \
+gcloud functions deploy YOUR_FUNCTION_NAME \
     --entry-point=http_request \
-    --runtime python38 \
-    --trigger-http
+    --runtime python312 \
+    --trigger-http \
+    --service-account=YOUR_SERVICE_ACCOUNT@YOUR_PROJECT.iam.gserviceaccount.com \
+    --timeout=600
 ```
 
-If you need to run or debug the  Google Cloud Function locally, run the command:
+  * `YOUR_FUNCTION_NAME`: The name you want to give your function (e.g., `zombie-project-bot`).
+  * `YOUR_SERVICE_ACCOUNT`: The service account the function will use to run. It needs the required IAM permissions (e.g., Cloud Asset Viewer, BigQuery User).
+  * `--timeout`: Increases the function's timeout (in seconds) to prevent "timeout" errors in environments with many projects.
 
-```bash
-functions-framework --target http_request --debug
-```
+**Scheduling Automatic Execution:**
+After deployment, use **Cloud Scheduler** to create a job that calls your function's URL on your desired schedule (e.g., every day at 3 PM). Remember to configure the job to use the same service account with OIDC authentication.
