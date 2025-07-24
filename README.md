@@ -24,7 +24,7 @@ Before you configure and deploy the Zombie Projects Watcher, ensure your environ
           * BigQuery API
           * IAM API
   * **Local Environment**:
-      * **Python**: Version 3.12 or higher.
+      * **Python**: Version 3.13 or higher.
       * **pipenv**: For dependency management.
       * **Google Cloud SDK**: The `gcloud` command-line tool, configured and authenticated.
   * **Billing Data in BigQuery**: You must have your Cloud Billing data exporting to a BigQuery dataset. See the prerequisite section below for instructions.
@@ -53,17 +53,16 @@ Once your billing data is exporting, create a BigQuery `VIEW`. A view is a virtu
 
 ```sql
 SELECT
-    '01AAD1-616217-97513A' AS billing_account_name
+    '<billing-account-name>' AS billing_account_name
 ,   billing_account_id
 ,   project.id AS project_id
 ,   ROUND(SUM(cost), 2) AS cost_generated
 ,   currency
 ,   DATE_SUB(DATE_TRUNC(current_date, MONTH), INTERVAL 1 MONTH) AS cost_reference_start_date
 FROM
-    `billing-export-scc-tools-2.billing.gcp_billing_export_v1_01AAD1_616217_97513A`
+    `<Your-big-query-table>`
 WHERE
     project.id IS NOT NULL
-    -- the cost occurred after cost_reference_start_date (first day of previous month)
     AND PARSE_DATE("%Y-%m-%d", FORMAT_TIMESTAMP("%Y-%m-%d", usage_start_time))
           >= DATE_SUB(DATE_TRUNC(current_date, MONTH), INTERVAL 1 MONTH)
 GROUP BY
