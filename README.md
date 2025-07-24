@@ -201,7 +201,7 @@ Run the command below in your terminal from the project's root folder. Replace t
 ```bash
 gcloud functions deploy YOUR_FUNCTION_NAME \
     --entry-point=http_request \
-    --runtime python312 \
+    --runtime python313 \
     --trigger-http \
     --service-account=YOUR_SERVICE_ACCOUNT@YOUR_PROJECT.iam.gserviceaccount.com \
     --timeout=600
@@ -211,5 +211,26 @@ gcloud functions deploy YOUR_FUNCTION_NAME \
   * `YOUR_SERVICE_ACCOUNT`: The service account the function will use to run. It needs the required IAM permissions (e.g., Cloud Asset Viewer, BigQuery User).
   * `--timeout`: Increases the function's timeout (in seconds) to prevent "timeout" errors in environments with many projects.
 
-**Scheduling Automatic Execution:**
-After deployment, use **Cloud Scheduler** to create a job that calls your function's URL on your desired schedule (e.g., every day at 3 PM). Remember to configure the job to use the same service account with OIDC authentication.
+
+### 4\. Scheduling Automatic Execution:
+
+After deployment, use Cloud Scheduler to create a job that calls your function's URL on your desired schedule. To ensure the function can only be triggered by the scheduler, deploy it as private (the default) and use OIDC authentication.
+
+Scheduler Creation Command:
+Run the gcloud command below to create a job that runs every day at 1 PM. Remember to replace the placeholder values.
+
+```bash
+gcloud scheduler jobs create http YOUR_JOB_NAME \
+    --schedule="0 13 * * *" \
+    --time-zone="America/Sao_Paulo" \
+    --location=YOUR_FUNCTION_REGION \
+    --uri="YOUR_FUNCTION_TRIGGER_URL" \
+    --http-method=POST \
+    --oidc-service-account-email="YOUR_SERVICE_ACCOUNT@YOUR_PROJECT.iam.gserviceaccount.com"
+```
+
+
+* `YOUR_JOB_NAME:` A name for your scheduler job (e.g., zombie-project-bot-trigger).
+* `YOUR_FUNCTION_REGION:` The region where you deployed your function (e.g., us-central1).
+* `YOUR_FUNCTION_TRIGGER_URL:` The trigger URL provided after a successful deployment.
+* `YOUR_SERVICE_ACCOUNT:` The same service account used to deploy the function. It will need the Cloud Run Invoker role to have permission to trigger the function.
