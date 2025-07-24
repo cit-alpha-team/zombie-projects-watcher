@@ -1,6 +1,3 @@
-Claro\! Aqui está a documentação completa, formatada em Markdown, pronta para ser copiada e colada como o novo `README.md` do seu projeto no GitHub.
-
------
 
 # Zombie Projects Watcher
 
