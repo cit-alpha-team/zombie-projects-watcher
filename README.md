@@ -203,7 +203,7 @@ gcloud functions deploy YOUR_FUNCTION_NAME \
 ```
 
   * `YOUR_FUNCTION_NAME`: The name you want to give your function (e.g., `zombie-project-bot`).
-  * `YOUR_SERVICE_ACCOUNT`: The service account the function will use to run. It needs the required IAM permissions (e.g., Cloud Asset Viewer, BigQuery User).
+  * `YOUR_SERVICE_ACCOUNT`: The service account the function will use to run. It needs the required IAM permissions (e.g., Viewer, BigQuery User).
   * `--timeout`: Increases the function's timeout (in seconds) to prevent "timeout" errors in environments with many projects.
 
 
