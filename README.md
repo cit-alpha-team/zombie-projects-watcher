@@ -11,23 +11,43 @@ The tool operates as a Cloud Function, which can be triggered via HTTP and sched
 
 ## Requirements
 
-Before you configure and deploy the Zombie Projects Watcher, ensure your environment meets the following requirements:
+Before you configure and deploy, ensure your environment meets the following requirements:
 
-  * **Google Cloud Project**: A Google Cloud project to host the Cloud Function and Cloud Scheduler.
-      * **Billing Enabled**: Billing must be enabled for the project.
-      * **APIs Enabled**: The following APIs must be enabled in your project:
-          * Cloud Functions API
-          * Cloud Run Admin API
-          * Cloud Build API
-          * Cloud Scheduler API
-          * Cloud Resource Manager API
-          * BigQuery API
-          * IAM API
-  * **Local Environment**:
-      * **Python**: Version 3.13 or higher.
-      * **pipenv**: For dependency management.
-      * **Google Cloud SDK**: The `gcloud` command-line tool, configured and authenticated.
-  * **Billing Data in BigQuery**: You must have your Cloud Billing data exporting to a BigQuery dataset. See the prerequisite section below for instructions.
+* **Google Cloud Project:** A project to host the Cloud Function and Cloud Scheduler.
+* **Billing Enabled:** Billing must be enabled for the project.
+* **Local Environment**:
+    * **Python**: Version 3.13 or higher.
+    * **pipenv**: For dependency management.
+    * **Google Cloud SDK**: The `gcloud` command-line tool, configured and authenticated.
+* **Billing Data in BigQuery**: You must have your Cloud Billing data exporting to a BigQuery dataset. See the prerequisite section below for instructions.
+
+### APIs
+The following APIs must be enabled in your project:
+
+* Cloud Functions API: `cloudfunctions.googleapis.com`
+* Cloud Run Admin API: `run.googleapis.com`
+* Cloud Build API: `cloudbuild.googleapis.com`
+* Cloud Scheduler API: `cloudscheduler.googleapis.com`
+* Cloud Resource Manager API: `cloudresourcemanager.googleapis.com`
+* BigQuery API: `bigquery.googleapis.com`
+* Identity and Access Management (IAM) API: `iam.googleapis.com`
+
+You can run the following `gcloud` command to enable all these APIs at once.
+
+Replace `<YOUR-PROJECT-ID>` with your actual project ID.
+```bash
+export PROJECT_ID=<YOUR-PROJECT-ID>
+
+gcloud services enable \
+    cloudfunctions.googleapis.com \
+    run.googleapis.com \
+    cloudbuild.googleapis.com \
+    cloudscheduler.googleapis.com \
+    cloudresourcemanager.googleapis.com \
+    bigquery.googleapis.com \
+    iam.googleapis.com \
+    --project ${PROJECT_ID}
+```
 
 ## Prerequisite: Setting Up Billing Data in BigQuery
 
