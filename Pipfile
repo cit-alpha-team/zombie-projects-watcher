@@ -4,21 +4,21 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-google-api-python-client = "*"
-google-cloud-bigquery = "*"
-grpcio = "*"
-google-auth-oauthlib = "*"
-confuse = "*"
-slack-sdk = "*"
-requests = "*"
-functions-framework= "*"
+google-api-python-client = "==2.176.0"
+google-cloud-bigquery = "==3.35.0"
+grpcio = "==1.73.1"
+google-auth-oauthlib = "==1.2.2"
+confuse = "==2.0.1"
+slack-sdk = "==3.36.0"
+requests = "==2.32.4"
+functions-framework = "==3.8.3"
 
 [dev-packages]
-pytest = "*"
-pytest-mock = "*"
-coverage = "*"
-pylint = "*"
-rope = "*"
+pytest = "==8.4.1"
+pytest-mock = "3.14.1"
+coverage = "7.9.2"
+pylint = "3.3.7"
+rope = "1.14.0"
 
 [requires]
 python_version = "3.13"
