@@ -16,9 +16,9 @@ Before you configure and deploy, ensure your environment meets the following req
 * **Google Cloud Project:** A project to host the Cloud Function and Cloud Scheduler.
 * **Billing Enabled:** Billing must be enabled for the project.
 * **Local Environment**:
-    * **Python**: Version 3.13 or higher.
-    * **pipenv**: For dependency management.
-    * **Google Cloud SDK**: The `gcloud` command-line tool, configured and authenticated.
+    * [**Python**](https://www.python.org/downloads/): Version 3.13 or higher.
+    * [**pipenv**](https://pipenv.pypa.io/en/latest/installation.html): For dependency management.
+    * [**Google Cloud SDK**](https://cloud.google.com/sdk/docs/install): The `gcloud` command-line tool, configured and authenticated.
 * **Billing Data in BigQuery**: You must have your Cloud Billing data exporting to a BigQuery dataset. See the prerequisite section below for instructions.
 
 ### APIs
