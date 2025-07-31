@@ -9,6 +9,8 @@ The tool operates as a Cloud Function, which can be triggered via HTTP and sched
 
 **Notification Example (Google Chat):**
 
+![Example Chat message](example-chat-message.png?raw=true "Example Chat message")
+
 ## Requirements
 
 Before you configure and deploy, ensure your environment meets the following requirements:
