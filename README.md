@@ -48,6 +48,65 @@ gcloud services enable \
     iam.googleapis.com \
     --project ${PROJECT_ID}
 ```
+### Required IAM Roles
+
+To successfully deploy and run the Zombie Projects Watcher, the following IAM roles are required. They should be granted to the appropriate principal (user or service account).
+
+#### For the Deployer Account
+
+The user that runs the `gcloud functions deploy` command needs the following roles on the project:
+
+* **Cloud Functions Admin** (`roles/cloudfunctions.admin`): To deploy and manage the Cloud Function itself.
+* **Cloud Run Admin** (`roles/run.admin`): As 2nd gen functions run on Cloud Run, this is needed to manage the underlying service.
+* **Service Account User** (`roles/iam.serviceAccountUser`): Required to grant the function permission to act as its designated service account.
+
+You can run the following commands to assign roles to the user:
+
+```bash
+export PROJECT_ID="your-gcp-project-id"
+export DEPLOYER_USER_EMAIL="user-you-deploy-with@example.com"
+export SA_EMAIL="your-sa@your-gcp-project-id.iam.gserviceaccount.com"
+
+gcloud projects add-iam-policy-binding ${PROJECT_ID} \
+    --member="user:${DEPLOYER_USER_EMAIL}" \
+    --role="roles/cloudfunctions.admin"
+
+gcloud projects add-iam-policy-binding ${PROJECT_ID} \
+    --member="user:${DEPLOYER_USER_EMAIL}" \
+    --role="roles/run.admin"
+
+gcloud iam service-accounts add-iam-policy-binding ${SA_EMAIL} \
+    --member="user:${DEPLOYER_USER_EMAIL}" \
+    --role="roles/iam.serviceAccountUser"
+```
+
+#### For the Service Account
+
+The service account that the function uses to execute needs the following roles to access other Google Cloud APIs:
+
+* **Viewer** (`roles/viewer`) granted at the **Organization level**: To list all projects, folders, and get IAM policies to identify owners.
+* **BigQuery User** (`roles/bigquery.user`) granted at the **Project level**: To execute cost-related queries on the billing export dataset.
+* **Cloud Run Invoker** (`roles/run.invoker`): granted at the **Project level**: To make authenticated calls to the Cloud Run service endpoint.
+
+You can run the following commands to assign roles to the service account:
+
+```bash
+export ORG_ID="your-organization-id"
+export PROJECT_ID="your-gcp-project-id"
+export SA_EMAIL="your-sa@your-gcp-project-id.iam.gserviceaccount.com"
+
+gcloud organizations add-iam-policy-binding ${ORG_ID} \
+    --member="serviceAccount:${SA_EMAIL}" \
+    --role="roles/viewer"
+
+gcloud projects add-iam-policy-binding ${PROJECT_ID} \
+    --member="serviceAccount:${SA_EMAIL}" \
+    --role="roles/bigquery.user"
+
+gcloud projects add-iam-policy-binding ${PROJECT_ID} \
+    --member="serviceAccount:${SA_EMAIL}" \
+    --role="roles/run.invoker"
+```
 
 ## Prerequisite: Setting Up Billing Data in BigQuery
 
