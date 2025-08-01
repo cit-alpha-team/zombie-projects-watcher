@@ -53,7 +53,12 @@ def send_messages_to_chat(projects_by_owner):
         user_to_mention = USERS_MAP.get(owner, owner)
         message = _get_message(user_to_mention)
         send_message_to_this_owner = False
-        for project in projects_by_owner.get(owner):
+        
+        # ADICIONE A ORDENAÇÃO AQUI
+        sorted_projects = sorted(projects_by_owner.get(owner), key=lambda p: p.get('costSincePreviousMonth', 0.0), reverse=True)
+        
+        # for project in projects_by_owner.get(owner):
+        for project in sorted_projects:    
             project_id = project.get('projectId')
             org = ORGS_NAME_MAPPING.get(project.get('org'))
             path = project.get('path')
