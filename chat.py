@@ -5,6 +5,7 @@ import requests
 from pprint import pformat
 from config import CONFIG
 from datetime import datetime as dt
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,7 @@ def _get_message(user_to_mention):
 
 def send_messages_to_chat(projects_by_owner):
     number_of_notified_projects = 0
+    total_cost_of_notified_projects = 0.0
     if not CHAT_ACTIVATED:
         logger.info('Chat integration is not active.')
         return
@@ -71,13 +73,17 @@ def send_messages_to_chat(projects_by_owner):
                 message += "`{}/{}{}` created `{} days ago`, costing *`{}`* {}.{}\n\n"\
                     .format(org, path, project_id, created_days_ago, cost, currency, emoji)
                 number_of_notified_projects = number_of_notified_projects + 1
+                total_cost_of_notified_projects += cost
         message += "\nIf these projects are not being used anymore, please consider `deleting them to reduce infra costs` and clutter."
 
         if send_message_to_this_owner:
             send_message(message)
+            time.sleep(1)
 
     today_weekday=dt.today().strftime('%A')
     final_of_execution_message = f'''Happy {today_weekday}!
 Today I found *{number_of_notified_projects} projects* with costs higher
-than the defined notification threshold of ${COST_MIN_TO_NOTIFY}.'''
+than the defined notification threshold of ${COST_MIN_TO_NOTIFY} 🪙, totaling *${total_cost_of_notified_projects:.2f}*.
+
+*Note*: Including only costs from the beginning of the previous month.'''
     send_message(final_of_execution_message)

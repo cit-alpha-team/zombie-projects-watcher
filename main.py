@@ -26,7 +26,7 @@ from filters import (
     filter_whitelisted_users
 )
 from billing import query_billing_info
-from slack import send_messages_to_slack
+# from slack import send_messages_to_slack
 from chat import send_messages_to_chat
 
 
@@ -141,7 +141,7 @@ def main():
 
     if SLACK_ACTIVATED:
         logger.info('Sending Slack messages.')
-        send_messages_to_slack(projects_by_owner)
+        # send_messages_to_slack(projects_by_owner)
         logger.info('All messages sent.')
     else:
         logger.info('Slack integration is not active.')
