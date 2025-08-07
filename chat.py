@@ -31,14 +31,14 @@ def get_webhook_url_from_secret_manager():
     response = client.access_secret_version(request={"name": name})
     return response.payload.data.decode("UTF-8")
 
-WEBHOOK_URL = get_webhook_url_from_secret_manager() if CHAT_ACTIVATED else None
-
 def send_message(message):
-    if not WEBHOOK_URL:
-        logger.error("Webhook URL not configured. Message will not be sent.")
+    try:
+        webhook_url = get_webhook_url_from_secret_manager()
+    except Exception as e:
+        logger.error("Failed to get webhook URL from Secret Manager: %s", e)
         return
-    
-    logger.info('Sending Chat message to webhook %s:\n%s', WEBHOOK_URL, message)
+
+    logger.info('Sending Chat message to webhook %s:\n%s', webhook_url, message)
     if PRINT_ONLY:
         return
     message_headers = {'Content-Type': 'application/json; charset=UTF-8'}
@@ -47,9 +47,9 @@ def send_message(message):
     }
     message_data_json = json.dumps(message_data, indent=2)
     response = requests.post(
-        WEBHOOK_URL, data=message_data_json, headers=message_headers)
+        webhook_url, data=message_data_json, headers=message_headers)
     if response.status_code != 200:
-        logger.error('Error sending message to Chat. Error: %s, Response: %s, Webhook: %s', response.status_code, pformat(response.text), WEBHOOK_URL)
+        logger.error('Error sending message to Chat. Error: %s, Response: %s, Webhook: %s', response.status_code, pformat(response.text), webhook_url)
 
 
 def _get_message(user_to_mention):
