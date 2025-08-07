@@ -38,7 +38,7 @@ def send_message(message):
         logger.error("Failed to get webhook URL from Secret Manager: %s", e)
         return
 
-    logger.info('Sending Chat message to webhook %s:\n%s', webhook_url, message)
+    logger.info('Sending Chat message:\n%s', message)
     if PRINT_ONLY:
         return
     message_headers = {'Content-Type': 'application/json; charset=UTF-8'}
@@ -49,7 +49,7 @@ def send_message(message):
     response = requests.post(
         webhook_url, data=message_data_json, headers=message_headers)
     if response.status_code != 200:
-        logger.error('Error sending message to Chat. Error: %s, Response: %s, Webhook: %s', response.status_code, pformat(response.text), webhook_url)
+        logger.error('Error sending message to Chat. Error: %s, Response: %s', response.status_code, pformat(response.text))
 
 
 def _get_message(user_to_mention):
