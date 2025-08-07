@@ -6,23 +6,39 @@ from pprint import pformat
 from config import CONFIG
 from datetime import datetime as dt
 import time
+from google.cloud import secretmanager
 
 logger = logging.getLogger(__name__)
 
 
 ORGS_NAME_MAPPING = CONFIG['org_names_mapping'].get()
 CHAT_ACTIVATED = CONFIG['chat']['activate'].get(bool)
-WEBHOOK_URL = CONFIG['chat']['webhook_url'].get()
 USERS_MAP = CONFIG['chat']['users_mapping'].get()
 PRINT_ONLY = CONFIG['chat']['print_only'].get(bool)
 COST_ALERT_THRESHOLD = CONFIG['chat']['cost_alert_threshold'].get(float)
 COST_ALERT_EMOJI = CONFIG['chat']['cost_alert_emoji'].get()
 COST_MIN_TO_NOTIFY = CONFIG['chat']['cost_min_to_notify'].get(float)
 
+def get_webhook_url_from_secret_manager():
+    """Fetches the webhook URL from Google Secret Manager."""
+    secret_manager_config = CONFIG['chat']['secret_manager']
+    project_id = secret_manager_config['project_id'].get()
+    secret_id = secret_manager_config['secret_id'].get()
+    version_id = secret_manager_config['version_id'].get()
 
+    client = secretmanager.SecretManagerServiceClient()
+    name = f"projects/{project_id}/secrets/{secret_id}/versions/{version_id}"
+    response = client.access_secret_version(request={"name": name})
+    return response.payload.data.decode("UTF-8")
 
 def send_message(message):
-    logger.info('Sending Chat message to webhook %s:\n%s', WEBHOOK_URL, message)
+    try:
+        webhook_url = get_webhook_url_from_secret_manager()
+    except Exception as e:
+        logger.error("Failed to get webhook URL from Secret Manager: %s", e)
+        return
+
+    logger.info('Sending Chat message:\n%s', message)
     if PRINT_ONLY:
         return
     message_headers = {'Content-Type': 'application/json; charset=UTF-8'}
@@ -31,9 +47,9 @@ def send_message(message):
     }
     message_data_json = json.dumps(message_data, indent=2)
     response = requests.post(
-        WEBHOOK_URL, data=message_data_json, headers=message_headers)
+        webhook_url, data=message_data_json, headers=message_headers)
     if response.status_code != 200:
-        logger.error('Error sending message to Chat. Error: %s, Response: %s, Webhook: %s', response.status_code, pformat(response.text), WEBHOOK_URL)
+        logger.error('Error sending message to Chat. Error: %s, Response: %s', response.status_code, pformat(response.text))
 
 
 def _get_message(user_to_mention):

@@ -50,8 +50,15 @@ chat:
   activate: false
   # Do not send messages, only print them.
   print_only: true
-  # Chat webhook URL.
-  webhook_url: https://...
+  # Secret Manager configuration for the webhook URL.
+  # This is required if 'activate' is true.
+  secret_manager:
+    # The project ID where the secret is stored.
+    project_id: "your-gcp-project-id"
+    # The name of the secret containing the webhook URL.
+    secret_id: "zombie-project-watcher-chat-webhook"
+    # The version of the secret to use (usually 'latest').
+    version_id: "latest"
   # Cost minimum to actually send a message (notify) to the owner.
   cost_min_to_notify: 0.0
   # Cost threshold to signal an alert highlight.

@@ -12,6 +12,7 @@ confuse = "==2.0.1"
 slack-sdk = "==3.36.0"
 requests = "==2.32.4"
 functions-framework = "==3.8.3"
+google-cloud-secret-manager = "2.24.0"
 
 [dev-packages]
 pytest = "==8.4.1"

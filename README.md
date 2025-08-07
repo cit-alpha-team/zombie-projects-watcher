@@ -33,6 +33,7 @@ The following APIs must be enabled in your project:
 * Cloud Resource Manager API: `cloudresourcemanager.googleapis.com`
 * BigQuery API: `bigquery.googleapis.com`
 * Identity and Access Management (IAM) API: `iam.googleapis.com`
+* Secret Manager API: `secretmanager.googleapis.com`
 
 You can run the following `gcloud` command to enable all these APIs at once.
 
@@ -48,6 +49,7 @@ gcloud services enable \
     cloudresourcemanager.googleapis.com \
     bigquery.googleapis.com \
     iam.googleapis.com \
+    secretmanager.googleapis.com \
     --project ${PROJECT_ID}
 ```
 ### Required IAM Roles
@@ -89,6 +91,7 @@ The service account that the function uses to execute needs the following roles 
 * **Viewer** (`roles/viewer`) granted at the **Organization level**: To list all projects, folders, and get IAM policies to identify owners.
 * **BigQuery User** (`roles/bigquery.user`) granted at the **Project level**: To execute cost-related queries on the billing export dataset.
 * **Cloud Run Invoker** (`roles/run.invoker`): granted at the **Project level**: To make authenticated calls to the Cloud Run service endpoint.
+* **Secret Manager Secret Accessor** (`roles/secretmanager.secretAccessor`) granted at the **Project level**: To access the webhook URL secret.
 
 You can run the following commands to assign roles to the service account:
 
@@ -108,6 +111,10 @@ gcloud projects add-iam-policy-binding ${PROJECT_ID} \
 gcloud projects add-iam-policy-binding ${PROJECT_ID} \
     --member="serviceAccount:${SA_EMAIL}" \
     --role="roles/run.invoker"
+
+gcloud projects add-iam-policy-binding ${PROJECT_ID} \
+    --member="serviceAccount:${SA_EMAIL}" \
+    --role="roles/secretmanager.secretAccessor"
 ```
 
 ## Prerequisite: Setting Up Billing Data in BigQuery
@@ -189,7 +196,10 @@ Configures Google Chat notifications.
 
   * `activate`: Set to `true` to enable the integration.
   * `print_only`: If `true`, messages will only be printed to the log and not sent. Useful for debugging.
-  * `webhook_url`: The webhook URL for the Google Chat space where messages will be sent.
+  * `secret_manager`: (Required if `chat.activate` is `true`) Configuration to fetch the webhook URL from Google Secret Manager.
+    * `project_id`: The project ID where your secret is stored.
+    * `secret_id`: The name of the secret containing the webhook URL.
+    * `version_id`: The version of the secret to use (e.g., `latest`).
   * `cost_min_to_notify`: The minimum amount (in USD) a project must have cost (since the previous month) for a notification to be sent.
   * `cost_alert_threshold`: A cost value that, if exceeded, adds an alert emoji to the message.
   * `cost_alert_emoji`: The emoji to use for the cost alert. Use the Unicode hex code (e.g., `'0x1F631'` for 😱).
