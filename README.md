@@ -229,7 +229,7 @@ This will cause messages to display "My Tech Company" instead of the numeric ID.
 
 1.  **Google Chat Notifications**: Formatted messages sent to the owners of projects that meet the "zombie" criteria. The message includes:
       * Owner's name.
-      * A list of problematic projects.
+      * A list of problematic projects, sorted by cost in ascending order to help with prioritization.
       * The full project path (if `org_info` is active).
       * The project's age in days.
       * The project's cost since the previous month.
