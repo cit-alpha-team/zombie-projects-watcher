@@ -1,0 +1,13 @@
+# The ID of your Google Cloud project where resources will be deployed.
+project_id = "your-gcp-project-id"
+
+# The email of the Service Account that the function will use to run.
+service_account_email = "zombie-watcher-bot@your-gcp-project-id.iam.gserviceaccount.com"
+
+# Choose a name for your configuration bucket.
+# IMPORTANT: Bucket names must be globally unique.
+config_bucket_name = "zombie-watcher-config-your-project-id" 
+
+# Paste your Google Chat webhook URL here.
+chat_webhook_url = "https://your-chat-webhook-url/..."
+
