@@ -1,11 +1,10 @@
-
 # Zombie Projects Watcher
 
 ## Introduction
 
 Zombie Projects Watcher is an automation tool designed to help engineering and finance teams control infrastructure costs on Google Cloud. It identifies potentially unused ("zombie") projects based on criteria such as age and cost, and proactively notifies the owners via Google Chat, encouraging clean-up and reducing waste.
 
-The tool operates as a Cloud Function, which can be triggered via HTTP and scheduled for periodic execution (e.g., daily or weekly) using Cloud Scheduler.
+The entire infrastructure is deployed and managed using **Terraform**. While the Terraform script prepares a GCS bucket for future dynamic configuration, the function currently reads its settings from a `config.yaml` file bundled with its source code.
 
 **Notification Example (Google Chat):**
 
@@ -21,6 +20,7 @@ Before you configure and deploy, ensure your environment meets the following req
     * [**Python**](https://www.python.org/downloads/): Version 3.13 or higher.
     * [**pipenv**](https://pipenv.pypa.io/en/latest/installation.html): For dependency management.
     * [**Google Cloud SDK**](https://cloud.google.com/sdk/docs/install): The `gcloud` command-line tool, configured and authenticated.
+    * [**Terraform**](https://learn.hashicorp.com/tutorials/terraform/install-cli): Version 1.0 or higher.
 * **Billing Data in BigQuery**: You must have your Cloud Billing data exporting to a BigQuery dataset. See the prerequisite section below for instructions.
 
 ### APIs
@@ -34,13 +34,10 @@ The following APIs must be enabled in your project:
 * BigQuery API: `bigquery.googleapis.com`
 * Identity and Access Management (IAM) API: `iam.googleapis.com`
 * Secret Manager API: `secretmanager.googleapis.com`
+* Cloud Storage API: `storage.googleapis.com`
 
 You can run the following `gcloud` command to enable all these APIs at once.
-
-Replace `<YOUR-PROJECT-ID>` with your actual project ID.
 ```bash
-export PROJECT_ID=<YOUR-PROJECT-ID>
-
 gcloud services enable \
     cloudfunctions.googleapis.com \
     run.googleapis.com \
@@ -50,71 +47,28 @@ gcloud services enable \
     bigquery.googleapis.com \
     iam.googleapis.com \
     secretmanager.googleapis.com \
-    --project ${PROJECT_ID}
+    storage.googleapis.com \
+    --project <YOUR-PROJECT-ID>
 ```
+
 ### Required IAM Roles
 
-To successfully deploy and run the Zombie Projects Watcher, the following IAM roles are required. They should be granted to the appropriate principal (user or service account).
+The service account that the function uses to execute needs the following roles. These will be configured by the Terraform script, except for the Organization-level role, which must be set manually.
 
-#### For the Deployer Account
+* **Viewer** (`roles/viewer`) granted at the **Organization level (Manual Step)**: To list all projects, folders, and get IAM policies to identify owners.
+* **BigQuery User** (`roles/bigquery.user`): To execute cost-related queries on the billing export dataset.
+* **Cloud Run Invoker** (`roles/run.invoker`): To make authenticated calls from Cloud Scheduler.
+* **Secret Manager Secret Accessor** (`roles/secretmanager.secretAccessor`): To access the webhook URL secret.
+* **Storage Object Viewer** (`roles/storage.objectViewer`): Provisioned by Terraform for future use (dynamic configuration from GCS).
 
-The user that runs the `gcloud functions deploy` command needs the following roles on the project:
-
-* **Cloud Functions Admin** (`roles/cloudfunctions.admin`): To deploy and manage the Cloud Function itself.
-* **Cloud Run Admin** (`roles/run.admin`): As 2nd gen functions run on Cloud Run, this is needed to manage the underlying service.
-* **Service Account User** (`roles/iam.serviceAccountUser`): Required to grant the function permission to act as its designated service account.
-
-You can run the following commands to assign roles to the user:
-
-```bash
-export PROJECT_ID="your-gcp-project-id"
-export DEPLOYER_USER_EMAIL="user-you-deploy-with@example.com"
-export SA_EMAIL="your-sa@your-gcp-project-id.iam.gserviceaccount.com"
-
-gcloud projects add-iam-policy-binding ${PROJECT_ID} \
-    --member="user:${DEPLOYER_USER_EMAIL}" \
-    --role="roles/cloudfunctions.admin"
-
-gcloud projects add-iam-policy-binding ${PROJECT_ID} \
-    --member="user:${DEPLOYER_USER_EMAIL}" \
-    --role="roles/run.admin"
-
-gcloud iam service-accounts add-iam-policy-binding ${SA_EMAIL} \
-    --member="user:${DEPLOYER_USER_EMAIL}" \
-    --role="roles/iam.serviceAccountUser"
-```
-
-#### For the Service Account
-
-The service account that the function uses to execute needs the following roles to access other Google Cloud APIs:
-
-* **Viewer** (`roles/viewer`) granted at the **Organization level**: To list all projects, folders, and get IAM policies to identify owners.
-* **BigQuery User** (`roles/bigquery.user`) granted at the **Project level**: To execute cost-related queries on the billing export dataset.
-* **Cloud Run Invoker** (`roles/run.invoker`): granted at the **Project level**: To make authenticated calls to the Cloud Run service endpoint.
-* **Secret Manager Secret Accessor** (`roles/secretmanager.secretAccessor`) granted at the **Project level**: To access the webhook URL secret.
-
-You can run the following commands to assign roles to the service account:
-
+**Manual Action Required:**
 ```bash
 export ORG_ID="your-organization-id"
-export PROJECT_ID="your-gcp-project-id"
-export SA_EMAIL="your-sa@your-gcp-project-id.iam.gserviceaccount.com"
+export SA_EMAIL="your-sa@your-gcp-project-id.iam.gserviceaccount.com" # The SA defined in your terraform.tfvars
 
 gcloud organizations add-iam-policy-binding ${ORG_ID} \
     --member="serviceAccount:${SA_EMAIL}" \
     --role="roles/viewer"
-
-gcloud projects add-iam-policy-binding ${PROJECT_ID} \
-    --member="serviceAccount:${SA_EMAIL}" \
-    --role="roles/bigquery.user"
-
-gcloud projects add-iam-policy-binding ${PROJECT_ID} \
-    --member="serviceAccount:${SA_EMAIL}" \
-    --role="roles/run.invoker"
-
-gcloud projects add-iam-policy-binding ${PROJECT_ID} \
-    --member="serviceAccount:${SA_EMAIL}" \
-    --role="roles/secretmanager.secretAccessor"
 ```
 
 ## Prerequisite: Setting Up Billing Data in BigQuery
@@ -161,17 +115,13 @@ GROUP BY
 ,   cost_reference_start_date
 ```
 
+
+
 ## Configuration
 
-The tool's behavior is controlled entirely by the `config.yaml` file. To get started, copy the example file.
+The tool's behavior is controlled entirely by the `config.yaml` file located in the **root of the project**. For now, this file is bundled directly with the function's source code during deployment.
 
-**Command:**
-
-```bash
-cp example-config.yaml config.yaml
-```
-
-Next, edit `config.yaml` with your specific information.
+*Note: The Terraform script also uploads this file to a GCS bucket to prepare for a future enhancement where the configuration can be updated dynamically without redeploying the function.*
 
 ### `config.yaml` Details
 
@@ -183,7 +133,7 @@ Defines the criteria for selecting projects to be analyzed.
 
   * `orgs`: (Required) A list of numeric Google Cloud organization IDs you wish to monitor.
   * `age_minimum_days`: (Required) The minimum age, in days, a project must be to be considered a "zombie".
-  * `users_regex`: (Optional) A list of regular expressions (regex) to exclude projects owned by certain users. Useful for ignoring projects from management accounts or executives.
+  * `users_regex`: (Optional) A list of regular expressions (regex) to exclude projects owned by certain users.
   * `projects`: (Optional) A list of specific project IDs to ignore during the check.
 
 #### `org_info` section
@@ -195,15 +145,15 @@ Defines the criteria for selecting projects to be analyzed.
 Configures Google Chat notifications.
 
   * `activate`: Set to `true` to enable the integration.
-  * `print_only`: If `true`, messages will only be printed to the log and not sent. Useful for debugging.
+  * `print_only`: If `true`, messages will only be printed to the log and not sent.
   * `secret_manager`: (Required if `chat.activate` is `true`) Configuration to fetch the webhook URL from Google Secret Manager.
     * `project_id`: The project ID where your secret is stored.
     * `secret_id`: The name of the secret containing the webhook URL.
     * `version_id`: The version of the secret to use (e.g., `latest`).
-  * `cost_min_to_notify`: The minimum amount (in USD) a project must have cost (since the previous month) for a notification to be sent.
+  * `cost_min_to_notify`: The minimum amount (in USD) a project must have cost for a notification to be sent.
   * `cost_alert_threshold`: A cost value that, if exceeded, adds an alert emoji to the message.
   * `cost_alert_emoji`: The emoji to use for the cost alert. Use the Unicode hex code (e.g., `'0x1F631'` for 😱).
-  * `users_mapping`: Maps a Google Cloud username (e.g., `johndoe`) to a Chat username (e.g., `john.doe`) so that mentions (`@`) work correctly.
+  * `users_mapping`: Maps a Google Cloud username (e.g., `johndoe`) to a Chat username (e.g., `john.doe`).
 
 #### `billing` section
 
@@ -211,26 +161,46 @@ Points to your billing data source.
 
   * `activate`: Set to `true` to include cost information in notifications.
   * `bigquery_client_project`: The project ID where your BigQuery billing export dataset is located.
-  * `cost_view_full_name`: The full name of the BigQuery view you created in the prerequisite step (format: `project.dataset.view_name`).
+  * `cost_view_full_name`: The full name of the BigQuery view you created (format: `project.dataset.view_name`).
 
 #### `org_names_mapping` section
 
 Creates human-readable aliases for your numeric organization IDs.
 
-**Example:**
+## Deployment with Terraform
 
-```yaml
-org_names_mapping:
-  '1055058813388': 'My Tech Company'
-```
+### 1. Initial Setup
 
-This will cause messages to display "My Tech Company" instead of the numeric ID.
+1.  **Create State Bucket:** Terraform needs a GCS bucket to store its state file. This is a one-time manual setup. Choose a globally unique name.
+    ```bash
+    gsutil mb gs://<CHOOSE-A-UNIQUE-BUCKET-NAME-FOR-TERRAFORM-STATE>
+    ```
+
+2.  **Configure Backend:** In the `terraform/` directory, open `main.tf` and update the `backend "gcs"` block with the name of the bucket you just created.
+
+3.  **Configure Variables:** In the `terraform/` directory, copy the example variables file:
+    ```bash
+    cp terraform.tfvars.example terraform.tfvars
+    ```
+    Then, open `terraform.tfvars` and fill in your project's specific values.
+
+### 2. Deploy
+
+1.  **Initialize Terraform:** From inside the `terraform/` directory, run:
+    ```bash
+    terraform init
+    ```
+2.  **Plan and Apply:** Review the plan and apply the changes to deploy all resources.
+    ```bash
+    terraform plan
+    terraform apply
+    ```
 
 ## Inputs and Outputs
 
 ### Inputs
 
-1.  **Configuration**: The fully populated `config.yaml` file.
+1.  **Configuration**: The `config.yaml` file, which is bundled with the function source code.
 2.  **Google Cloud Data**:
       * The list of projects, folders, and organizations obtained via the Cloud Resource Manager API.
       * Cost data obtained from your billing export view in BigQuery.
@@ -239,84 +209,24 @@ This will cause messages to display "My Tech Company" instead of the numeric ID.
 
 1.  **Google Chat Notifications**: Formatted messages sent to the owners of projects that meet the "zombie" criteria. The message includes:
       * Owner's name.
-      * A list of problematic projects, sorted by cost in ascending order to help with prioritization.
-      * The full project path (if `org_info` is active).
+      * A list of problematic projects.
       * The project's age in days.
       * The project's cost since the previous month.
-      * An alert emoji if the cost exceeds `cost_alert_threshold`.
-2.  **(Optional) JSON Dump File**: If the `dump_json_file_name` key is set in `config.yaml`, a JSON file containing all enriched project data will be saved locally.
+2.  **(Optional) JSON Dump File**: If the `dump_json_file_name` key is set in `config.yaml`, a JSON file with enriched project data will be saved locally when running in CLI mode.
 
-## Installation and Usage
+## Local Development
 
-### 1\. Install Dependencies
+For testing and manual runs, you can execute the script directly from your machine. The local script will read the `config.yaml` from the project root.
 
-Clone the repository, install dependencies using `pipenv`, and create your configuration file from the example.
-
-```bash
-pipenv install --ignore-pipfile --dev
-cp example-config.yaml config.yaml
-```
-
-### 2\. Usage as a Local Command (CLI)
-
-For testing and manual runs, you can execute the script directly from your machine.
-
-**Authentication:**
-First, authenticate your user account so the script has the necessary permissions.
-
-```bash
-gcloud auth application-default login
-gcloud config set project YOUR_PROJECT_ID
-```
-
-
-**Execution:**
-Use `pipenv` to run the main script within the correct virtual environment.
-
-```bash
-pipenv run python main.py
-```
-
-### 3\. Deployment as a Google Cloud Function
-
-For automation, the recommended method is to deploy the code as a Cloud Function.
-
-**Deploy Command:**
-Run the command below in your terminal from the project's root folder. Replace the values as needed.
-
-```bash
-gcloud functions deploy YOUR_FUNCTION_NAME \
-    --entry-point=http_request \
-    --runtime python313 \
-    --trigger-http \
-    --service-account=YOUR_SERVICE_ACCOUNT@YOUR_PROJECT.iam.gserviceaccount.com \
-    --timeout=600
-```
-
-  * `YOUR_FUNCTION_NAME`: The name you want to give your function (e.g., `zombie-project-bot`).
-  * `YOUR_SERVICE_ACCOUNT`: The service account the function will use to run. It needs the required IAM permissions (e.g., Viewer, BigQuery User).
-  * `--timeout`: Increases the function's timeout (in seconds) to prevent "timeout" errors in environments with many projects.
-
-
-### 4\. Scheduling Automatic Execution:
-
-After deployment, use Cloud Scheduler to create a job that calls your function's URL on your desired schedule. To ensure the function can only be triggered by the scheduler, deploy it as private (the default) and use OIDC authentication.
-
-Scheduler Creation Command:
-Run the gcloud command below to create a job that runs every day at 1 PM. Remember to replace the placeholder values.
-
-```bash
-gcloud scheduler jobs create http YOUR_JOB_NAME \
-    --schedule="0 13 * * *" \
-    --time-zone="America/Sao_Paulo" \
-    --location=YOUR_FUNCTION_REGION \
-    --uri="YOUR_FUNCTION_TRIGGER_URL" \
-    --http-method=POST \
-    --oidc-service-account-email="YOUR_SERVICE_ACCOUNT@YOUR_PROJECT.iam.gserviceaccount.com"
-```
-
-
-* `YOUR_JOB_NAME:` A name for your scheduler job (e.g., zombie-project-bot-trigger).
-* `YOUR_FUNCTION_REGION:` The region where you deployed your function (e.g., us-central1).
-* `YOUR_FUNCTION_TRIGGER_URL:` The trigger URL provided after a successful deployment.
-* `YOUR_SERVICE_ACCOUNT:` The same service account used to deploy the function. It will need the Cloud Run Invoker role to have permission to trigger the function.
+1.  **Install Dependencies:**
+    ```bash
+    pipenv install --ignore-pipfile --dev
+    ```
+2.  **Authenticate:**
+    ```bash
+    gcloud auth application-default login
+    ```
+3.  **Execute:**
+    ```bash
+    pipenv run python main.py
+    ```
