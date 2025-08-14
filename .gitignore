@@ -572,3 +572,6 @@ result.json
 config.yaml
 docs/*.pdf
 deploy.sh
+
+# Terraform variable files
+*.tfvars
