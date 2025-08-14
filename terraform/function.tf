@@ -5,7 +5,6 @@ data "archive_file" "source" {
   excludes    = [
     "terraform/",
     ".git/",
-    "config.yaml",
     "*.tfvars"
     ]
 }
@@ -49,7 +48,6 @@ resource "google_cloudfunctions2_function" "zombie_watcher_function" {
     service_account_email = var.service_account_email
 
     environment_variables = {
-      CONFIG_BUCKET_NAME = var.config_bucket_name
     }
   }
 }
