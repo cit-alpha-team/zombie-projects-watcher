@@ -38,6 +38,8 @@ The following APIs must be enabled in your project:
 
 You can run the following `gcloud` command to enable all these APIs at once.
 ```bash
+export PROJECT_ID=<YOUR-PROJECT-ID>
+
 gcloud services enable \
     cloudfunctions.googleapis.com \
     run.googleapis.com \
@@ -48,7 +50,7 @@ gcloud services enable \
     iam.googleapis.com \
     secretmanager.googleapis.com \
     storage.googleapis.com \
-    --project <YOUR-PROJECT-ID>
+    --project ${PROJECT_ID}
 ```
 
 ### Required IAM Roles
