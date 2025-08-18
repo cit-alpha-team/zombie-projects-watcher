@@ -575,3 +575,6 @@ deploy.sh
 
 # Terraform variable files
 *.tfvars
+
+# Terraform lock file
+.terraform.lock.hcl
