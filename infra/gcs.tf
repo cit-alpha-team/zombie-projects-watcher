@@ -13,7 +13,7 @@ resource "google_storage_bucket" "config_bucket" {
 resource "google_storage_bucket_object" "config_file" {
   name   = "config.yaml"
   bucket = google_storage_bucket.config_bucket.name
-  source = "../config.yaml"
+  source = "${path.module}/../config.yaml"
 
   depends_on = [google_storage_bucket.config_bucket]
 }
