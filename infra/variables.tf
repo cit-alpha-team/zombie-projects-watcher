@@ -26,7 +26,3 @@ variable "chat_webhook_url" {
   sensitive   = true
 }
 
-variable "config_bucket_name" {
-  description = "The name for the GCS bucket that will store the config.yaml file."
-  type        = string
-}

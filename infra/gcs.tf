@@ -1,5 +1,9 @@
+resource "random_id" "config_bucket_suffix" {
+  byte_length = 2
+}
+
 resource "google_storage_bucket" "config_bucket" {
-  name          = var.config_bucket_name
+  name          = "zombie-watcher-config-${var.project_id}-${random_id.config_bucket_suffix.hex}"
   location      = var.region
   force_destroy = true
 

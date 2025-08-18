@@ -48,6 +48,7 @@ resource "google_cloudfunctions2_function" "zombie_watcher_function" {
     service_account_email = var.service_account_email
 
     environment_variables = {
+      CONFIG_BUCKET_NAME = google_storage_bucket.config_bucket.name
     }
   }
 }
@@ -67,3 +68,4 @@ resource "google_cloud_scheduler_job" "zombie_watcher_trigger" {
     }
   }
 }
+
