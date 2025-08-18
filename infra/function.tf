@@ -1,6 +1,6 @@
 data "archive_file" "source" {
   type        = "zip"
-  source_dir  = "../"
+  source_dir  = "${path.module}/../"
   output_path = "/tmp/zombie-watcher-source.zip"
   excludes    = [
     "terraform/",
