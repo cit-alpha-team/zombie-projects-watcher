@@ -26,3 +26,4 @@ variable "chat_webhook_url" {
   sensitive   = true
 }
 
+
