@@ -55,23 +55,18 @@ gcloud services enable \
 
 ### Required IAM Roles
 
-The service account that the function uses to execute needs the following roles. These will be configured by the Terraform script, except for the Organization-level role, which must be set manually.
+The Terraform script will automatically create a service account and assign it all the necessary project-level and organization-level roles.
 
-* **Viewer** (`roles/viewer`) granted at the **Organization level (Manual Step)**: To list all projects, folders, and get IAM policies to identify owners.
+**Important:** The user or service account running `terraform apply` must have sufficient permissions to create service accounts (`roles/iam.serviceAccountAdmin`) and set IAM policies on the project and organization (`roles/resourcemanager.projectIamAdmin`, `roles/resourcemanager.organizationAdmin`).
+
+The following roles will be assigned to the bot's service account by Terraform:
+
+* **Organization Viewer** (`roles/viewer`): To list all projects across the organization.
 * **BigQuery User** (`roles/bigquery.user`): To execute cost-related queries on the billing export dataset.
 * **Cloud Run Invoker** (`roles/run.invoker`): To make authenticated calls from Cloud Scheduler.
 * **Secret Manager Secret Accessor** (`roles/secretmanager.secretAccessor`): To access the webhook URL secret.
 * **Storage Object Viewer** (`roles/storage.objectViewer`): Provisioned by Terraform for future use (dynamic configuration from GCS).
 
-**Manual Action Required:**
-```bash
-export ORG_ID="your-organization-id"
-export SA_EMAIL="your-sa@your-gcp-project-id.iam.gserviceaccount.com" # The SA defined in your terraform.tfvars
-
-gcloud organizations add-iam-policy-binding ${ORG_ID} \
-    --member="serviceAccount:${SA_EMAIL}" \
-    --role="roles/viewer"
-```
 
 ## Prerequisite: Setting Up Billing Data in BigQuery
 
@@ -178,17 +173,17 @@ Creates human-readable aliases for your numeric organization IDs.
     gsutil mb gs://<CHOOSE-A-UNIQUE-BUCKET-NAME-FOR-TERRAFORM-STATE>
     ```
 
-2.  **Configure Backend:** In the `terraform/` directory, open `main.tf` and update the `backend "gcs"` block with the name of the bucket you just created.
+2.  **Configure Backend:** In the `infra/` directory, open `backend.tf` and update the `bucket` attribute with the name of the bucket you just created.
 
-3.  **Configure Variables:** In the `terraform/` directory, copy the example variables file:
+3.  **Configure Variables:** In the `infra/` directory, copy the example variables file:
     ```bash
     cp terraform.tfvars.example terraform.tfvars
     ```
-    Then, open `terraform.tfvars` and fill in your project's specific values.
+    Then, open `terraform.tfvars` and fill in your project's specific values (`project_id`, `organization_id`, `chat_webhook_url`)
 
 ### 2. Deploy
 
-1.  **Initialize Terraform:** From inside the `terraform/` directory, run:
+1.  **Initialize Terraform:** From inside the `infra/` directory, run:
     ```bash
     terraform init
     ```
