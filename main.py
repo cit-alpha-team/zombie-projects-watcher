@@ -284,7 +284,7 @@ def _get_owners(client, project):
         users = list(filter(filter_users, members))
         if not users:
             logger.debug('No owner is a user for Project %s.', project_name)
-    users = set([user.strip('user:') for user in users])
+    users = set([user.removeprefix('user:') for user in users])
     return list(users)
 
 
@@ -325,3 +325,4 @@ def _get_created_days_ago(project):
 
 if __name__ == '__main__':
     main()
+
