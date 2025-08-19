@@ -45,7 +45,7 @@ resource "google_cloudfunctions2_function" "zombie_watcher_function" {
     min_instance_count    = 0
     available_memory      = "256Mi"
     timeout_seconds       = 540
-    service_account_email = var.service_account_email
+    service_account_email = google_service_account.zombie_watcher_sa.email
 
     environment_variables = {
       CONFIG_BUCKET_NAME = google_storage_bucket.config_bucket.name
@@ -64,7 +64,7 @@ resource "google_cloud_scheduler_job" "zombie_watcher_trigger" {
     http_method = "POST"
 
     oidc_token {
-      service_account_email = var.service_account_email
+      service_account_email = google_service_account.zombie_watcher_sa.email
     }
   }
 }

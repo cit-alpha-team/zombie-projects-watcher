@@ -1,9 +1,10 @@
 # The ID of your Google Cloud project where resources will be deployed.
 project_id = "your-gcp-project-id"
 
-# The email of the Service Account that the function will use to run.
-service_account_email = "zombie-watcher-bot@your-gcp-project-id.iam.gserviceaccount.com"
+# The numeric ID of your Google Cloud Organization.
+# Required to grant the service account viewer permissions on the organization.
+organization_id = "123456789012"
 
-# Paste your Google Chat webhook URL here.
+# Paste your Google Chat webhook URL here. This will be stored securely in Secret Manager.
 chat_webhook_url = "https://your-chat-webhook-url/..."
 

@@ -15,8 +15,8 @@ variable "function_name" {
   default     = "zombie-projects-watcher"
 }
 
-variable "service_account_email" {
-  description = "The email of the service account the function will use."
+variable "organization_id" {
+  description = "O ID numérico da sua Organização GCP."
   type        = string
 }
 
