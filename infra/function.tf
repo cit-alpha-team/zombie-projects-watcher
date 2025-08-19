@@ -3,7 +3,7 @@ data "archive_file" "source" {
   source_dir  = "${path.module}/../"
   output_path = "/tmp/zombie-watcher-source.zip"
   excludes = [
-    "terraform/",
+    "infra/",
     ".git/",
     "*.tfvars"
   ]
