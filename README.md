@@ -130,6 +130,7 @@ Defines the criteria for selecting projects to be analyzed.
 
   * `orgs`: (Required) A list of numeric Google Cloud organization IDs you wish to monitor.
   * `age_minimum_days`: (Required) The minimum age, in days, a project must be to be considered a "zombie".
+  * `age_maximum_days`: (Required) The maximum age, in days, for a project to be considered. This creates a time window for analysis, preventing notifications for very old projects. Set to 0 to disable.
   * `users_regex`: (Optional) A list of regular expressions (regex) to exclude projects owned by certain users.
   * `projects`: (Optional) A list of specific project IDs to ignore during the check.
 
