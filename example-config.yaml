@@ -6,6 +6,8 @@ filters:
     - '8888888888888'
   # Filter out projects created in less than X days.
   age_minimum_days: 5
+  # Filter out projects created in more than X days. Set to 0 to disable.
+  age_maximum_days: 180
   # Filter out projects if any owner matches with any regex listed.
   users_regex:
     - kieras@.*
