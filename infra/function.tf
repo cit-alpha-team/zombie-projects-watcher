@@ -5,7 +5,8 @@ data "archive_file" "source" {
   excludes = [
     "infra/",
     ".git/",
-    "*.tfvars"
+    "*.tfvars",
+    "config.yaml"
   ]
 }
 
