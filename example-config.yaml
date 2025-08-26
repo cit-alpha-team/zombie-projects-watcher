@@ -76,9 +76,9 @@ billing:
   activate: false
   # Project BigQuery client use to connect to dataset.
   bigquery_client_project: my-project
-  # Full BigQuery view name with Billin export information.
-  # See example-bigquery-billing-costs-view.sql file for an example query.
-  cost_view_full_name: my-project.billing.cost_per_project_starting_from_last_month
+  # Full BigQuery table name with Billing export information.
+  # Format: project-id.dataset_name.gcp_billing_export_v1_XXXXXX_XXXXXX_XXXXXX
+  billing_export_table_name: my-project.billing.gcp_billing_export_v1_010101_010101_010101
 org_names_mapping:
   # Mapping to give meaningful names to organizations in messages.
   '9999999999999': my-org
