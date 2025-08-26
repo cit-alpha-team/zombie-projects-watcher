@@ -20,7 +20,6 @@ from utils import (
 from filters import (
     filter_projects_matching_org_level,
     filter_older_than,
-    filter_younger_than,
     filter_owners,
     filter_users,
     filter_whitelisted_projects,
@@ -35,7 +34,6 @@ ORGS_FILTER = CONFIG['filters']['orgs'].get()
 PROJECTS_FILTER = CONFIG['filters']['projects'].get() or []
 USERS_REGEX_FILTER = CONFIG['filters']['users_regex'].get() or []
 AGE_MINIMUM_DAYS_FILTER = CONFIG['filters']['age_minimum_days'].get(int)
-AGE_MAXIMUM_DAYS_FILTER = CONFIG['filters']['age_maximum_days'].get(int)
 SLACK_ACTIVATED = CONFIG['slack']['activate'].get(bool)
 CHAT_ACTIVATED = CONFIG['chat']['activate'].get(bool)
 BILLING_ACTIVATED = CONFIG['billing']['activate'].get(bool)
@@ -127,17 +125,10 @@ def main():
     if DEBUG_FILTERED_BY_AGE:
         logger.debug('Aged Projects filter applied:\n%s', pformat(older_projects))
         
-    logger.info('Filtering Projects by maximum age.')
-    age_filtered_projects = list(filter(filter_younger_than(
-        AGE_MAXIMUM_DAYS_FILTER), older_projects))
-
-    if DEBUG_FILTERED_BY_AGE:
-        logger.debug('Maximum age Projects filter applied:\n%s', pformat(age_filtered_projects))
-
     logger.info('Filtering Projects by org level.')
 
     org_projects = list(filter(filter_projects_matching_org_level(
-        ORGS_FILTER), age_filtered_projects))
+        ORGS_FILTER), older_projects))
 
     if DEBUG_FILTERED_BY_ORGS:
         logger.debug('Project by orgs:\n%s', pformat(org_projects))

@@ -27,14 +27,6 @@ def filter_older_than(days):
             return False
     return filter_older_projects
 
-def filter_younger_than(days):
-    def filter_younger_projects(project):
-        if not days or int(project.get('createdDaysAgo')) < days:
-            return True
-        else:
-            return False
-    return filter_younger_projects
-
 
 def filter_owners(bindings):
     if bindings.get('role') == 'roles/owner':
