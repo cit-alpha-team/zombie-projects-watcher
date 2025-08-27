@@ -11,7 +11,7 @@ COST_WINDOW_DAYS = CONFIG['filters']['age_maximum_days'].get(int)
 def query_billing_info():
     client = bigquery.Client(project=BIGQUERY_CLIENT_PROJECT)
 
-    if COST_WINDOW_DAYS and COST_WINDOW_DAYS > 0:
+    if COST_WINDOW_DAYS:
         date_filter_clause = f"AND PARSE_DATE('%Y-%m-%d', FORMAT_TIMESTAMP('%Y-%m-%d', usage_start_time)) >= DATE_SUB(CURRENT_DATE(), INTERVAL {COST_WINDOW_DAYS} DAY)"
         cost_reference_date = f"DATE_SUB(CURRENT_DATE(), INTERVAL {COST_WINDOW_DAYS} DAY)"
     else:

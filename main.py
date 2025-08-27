@@ -124,7 +124,6 @@ def main():
 
     if DEBUG_FILTERED_BY_AGE:
         logger.debug('Aged Projects filter applied:\n%s', pformat(older_projects))
-        
     logger.info('Filtering Projects by org level.')
 
     org_projects = list(filter(filter_projects_matching_org_level(
