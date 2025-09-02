@@ -50,3 +50,4 @@ def filter_whitelisted_users(whitelisted_users_regex):
                     return False
         return True
     return filter_users
+

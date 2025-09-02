@@ -70,7 +70,7 @@ The following roles will be assigned to the bot's service account by Terraform:
 
 ## Prerequisite: Setting Up Billing Data in BigQuery
 
-The tool's ability to report on costs depends on having access to your detailed billing data. This is achieved by exporting your Cloud Billing data to a BigQuery dataset and then creating a specific `VIEW` for the tool to query.
+The tool's ability to report on costs depends on having access to your detailed billing data. This is achieved by exporting your Cloud Billing data to a BigQuery dataset.
 
 ### Step 1: Enable Cloud Billing Export to BigQuery
 
@@ -78,41 +78,13 @@ If you haven't done so already, you need to enable the detailed billing data exp
 
 For detailed instructions, follow the official Google Cloud guide: [Set up Cloud Billing data export to BigQuery](https://cloud.google.com/billing/docs/how-to/export-data-bigquery).
 
-### Step 2: Create the Cost Aggregation View
+### Step 2: Identify the Billing Export Table Name
 
-Once your billing data is exporting, create a BigQuery `VIEW`. A view is a virtual table based on the result of an SQL query. This provides a simplified and efficient way for the bot to get the exact cost data it needs.
+Once your billing data is exporting, locate and copy the full name of the table created by the export process. This is the name you will specify in your `config.yaml`.
 
-1.  Navigate to the **BigQuery** section in the Google Cloud Console.
-2.  Select the project where your billing export is located.
-3.  Open the SQL query editor.
-4.  Paste the query below, making sure to **update the table name in the `FROM` clause** to match your billing export table.
-5.  Click **"Save"** and choose **"Save view"**. Give it the name that you will later specify in your `config.yaml` (e.g., `costs_per_project`).
+The format is typically `project-id.dataset_name.gcp_billing_export_v1_XXXXXX_XXXXXX_XXXXXX`.
 
-**SQL Query to Create the View:**
-
-```sql
-SELECT
-    '<billing-account-name>' AS billing_account_name
-,   billing_account_id
-,   project.id AS project_id
-,   ROUND(SUM(cost), 2) AS cost_generated
-,   currency
-,   DATE_SUB(DATE_TRUNC(current_date, MONTH), INTERVAL 1 MONTH) AS cost_reference_start_date
-FROM
-    `<Your-big-query-table>`
-WHERE
-    project.id IS NOT NULL
-    AND PARSE_DATE("%Y-%m-%d", FORMAT_TIMESTAMP("%Y-%m-%d", usage_start_time))
-          >= DATE_SUB(DATE_TRUNC(current_date, MONTH), INTERVAL 1 MONTH)
-GROUP BY
-    billing_account_name
-,   billing_account_id
-,   project.id
-,   currency
-,   cost_reference_start_date
-```
-
-
+*(Optional) For advanced use cases where you prefer to use a pre-aggregated summary, you can create a BigQuery `VIEW` and point the configuration to it. An example query for creating such a view can be found in the `example-bigquery-billing-costs-view.sql` file.*
 
 ## Configuration
 
@@ -130,9 +102,9 @@ Defines the criteria for selecting projects to be analyzed.
 
   * `orgs`: (Required) A list of numeric Google Cloud organization IDs you wish to monitor.
   * `age_minimum_days`: (Required) The minimum age, in days, a project must be to be considered a "zombie".
+  * `age_maximum_days`: (Optional) Defines the time window, in days, for cost calculation (e.g., `180` calculates costs for the last 180 days). Set to `0` to use the default behavior (costs since the beginning of the previous month).
   * `users_regex`: (Optional) A list of regular expressions (regex) to exclude projects owned by certain users.
   * `projects`: (Optional) A list of specific project IDs to ignore during the check.
-
 #### `org_info` section
 
   * `activate`: Set to `true` to enable the bot to fetch and display the full folder path of the project in notifications.
@@ -158,7 +130,7 @@ Points to your billing data source.
 
   * `activate`: Set to `true` to include cost information in notifications.
   * `bigquery_client_project`: The project ID where your BigQuery billing export dataset is located.
-  * `cost_view_full_name`: The full name of the BigQuery view you created (format: `project.dataset.view_name`).
+  * `billing_export_table_name`: (Required if `billing.activate` is `true`) The full name of your BigQuery table containing the detailed billing export data (format: `project.dataset.table_name`).
 
 #### `org_names_mapping` section
 
@@ -200,7 +172,7 @@ Creates human-readable aliases for your numeric organization IDs.
 1.  **Configuration**: The `config.yaml` file, which is bundled with the function source code.
 2.  **Google Cloud Data**:
       * The list of projects, folders, and organizations obtained via the Cloud Resource Manager API.
-      * Cost data obtained from your billing export view in BigQuery.
+      * Cost data obtained from your billing export table in BigQuery.
 
 ### Outputs
 
@@ -208,7 +180,7 @@ Creates human-readable aliases for your numeric organization IDs.
       * Owner's name.
       * A list of problematic projects.
       * The project's age in days.
-      * The project's cost since the previous month.
+      * The project's cost within the configured time window.
 2.  **(Optional) JSON Dump File**: If the `dump_json_file_name` key is set in `config.yaml`, a JSON file with enriched project data will be saved locally when running in CLI mode.
 
 ## Local Development
