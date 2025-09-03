@@ -5,6 +5,8 @@ from pprint import pformat
 from datetime import datetime as dt
 import traceback as tb
 from googleapiclient import discovery
+from google.cloud import asset_v1
+from google.api_core.exceptions import Forbidden
 
 from logging_config import setup_logging
 import functions_framework
@@ -72,21 +74,23 @@ def http_request(request):
     return message, status_code
 
 def main():
-    client = _get_resource_manager_client()
-    client_v1 = _get_resource_manager_client_v1() 
+    asset_client = asset_v1.AssetServiceClient()
+
+    logger.info('Building folder ID to Name map.')
+    folder_map = _get_folder_display_names(asset_client, ORGS_FILTER)
 
     logger.info('Retrieving Projects.')
-    active_projects = _get_projects(client)
+    active_projects = _get_projects(asset_client, ORGS_FILTER)
 
     logger.info('Calculating Project age information.')
     enriched_projects = _enrich_project_info_with_age(active_projects)
 
     logger.info('Retrieving Project owners information.')
-    enriched_projects = _enrich_project_info_with_owners(client, enriched_projects)
-
+    enriched_projects = _enrich_project_info_with_owners(asset_client, enriched_projects)
+    
     if ORGS_ACTIVATED:
         logger.info('Retrieving Project organization information.')
-        enriched_projects = _enrich_project_info_with_org_and_path(client_v1, client, enriched_projects)
+        enriched_projects = _enrich_project_info_with_org_and_path(asset_client, enriched_projects, folder_map)
     else:
         logger.info('Project organization information is not active.')
 
@@ -105,8 +109,11 @@ def main():
             json.dump(enriched_projects, fp, indent=2, sort_keys=True)
 
     logger.info('Filtering Projects by project.')
-    project_filtered = list(filter(filter_whitelisted_projects(
-        PROJECTS_FILTER), enriched_projects))
+    project_filtered = [
+        p for p in enriched_projects
+        if p.get('name', '').split('/')[-1] not in PROJECTS_FILTER
+    ]
+
 
     if DEBUG_FILTERED_BY_PROJECTS:
         logger.debug('Project filter applied:\n%s', pformat(project_filtered))
@@ -160,106 +167,135 @@ def main():
 
     return response_message, response_code
 
+def _get_projects(asset_client, orgs):
+    all_projects = []
+    for org_id in orgs:
+        scope = f"organizations/{org_id}"
+        try:
+            response = asset_client.search_all_resources(
+                request={
+                    "scope": scope,
+                    "asset_types": ["cloudresourcemanager.googleapis.com/Project"],
+                    "read_mask": "name,createTime,project,organization,folders,displayName",
+                }
+            )
+            for resource in response:
+                project = {
+                    'name': resource.name,
+                    'projectId': resource.project,
+                    'displayName': resource.display_name,
+                    'createTime': resource.create_time.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                    'organization': resource.organization,
+                    'folders': resource.folders,
+                }
+                all_projects.append(project)
+        except Exception as e:
+            logger.error(f"Error fetching projects in organization {org_id} with Cloud Asset: {e}")
+    return all_projects
 
-def _get_projects(client):
-    project_list_request = client.projects().search(query='state:ACTIVE')
-    project_list_response = project_list_request.execute()
-    projects = project_list_response.get('projects', [])
-    while project_list_response.get('nextPageToken'):
-        project_list_request = client.projects().list_next(previous_request=project_list_request,\
-            previous_response=project_list_response)
-        project_list_response = project_list_request.execute()
-        projects = projects + project_list_response.get('projects', [])
-    return projects
-
-
-def _get_resource_manager_client():
-    client = discovery.build("cloudresourcemanager", "v3")
-    return client
-
-
-def _get_resource_manager_client_v1():
-    client_v1 = discovery.build("cloudresourcemanager", "v1")
-    return client_v1
-
-
-def _enrich_project_info_with_owners(client, projects):
+def _enrich_project_info_with_owners(asset_client, projects):
     for project in projects:
-        project['owners'] = _get_owners(client, project)
-        project['owners_id'] = _get_owners_id(project.get('owners'))
-        logger.debug('Owners for Project %s: %s', project.get('projectId'), project.get('owners'))
-    return projects
+        project_id_value = project.get('projectId')
+        project['vpc_blocked'] = False
+        if project_id_value.startswith('projects/'):
+            project_id_value = project_id_value.split('/')[-1]
 
+        scope = f"projects/{project_id_value}"
+        owners_list = []
+
+        try:
+            response = asset_client.search_all_iam_policies(
+                request={"scope": scope, "query": "policy:roles/owner"}
+            )
+            for policy in response:
+                for binding in policy.policy.bindings:
+                    if binding.role == "roles/owner":
+                        for member in binding.members:
+                            if member.startswith("user:"):
+                                owners_list.append(member.removeprefix("user:"))
+        except Forbidden as e:
+            if "vpcServiceControlsUniqueIdentifier" in str(e):
+                logger.warning(f"Project {project_id_value} is protected by VPC-SC. Could not fetch owners.")
+                project['vpc_blocked'] = True
+            else:
+                logger.error(f"Permission error when fetching owners for project {project_id_value}: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error when fetching owners for project {project_id_value}: {e}")
+
+        project['owners'] = list(set(owners_list))
+        project['owners_id'] = _get_owners_id(project.get('owners'))
+        logger.debug('Owners for Project %s: %s', project_id_value, project.get('owners'))
+    return projects
 
 def _enrich_project_info_with_age(projects):
     for project in projects:
         project['createdDaysAgo'] = _get_created_days_ago(project)
     return projects
 
-
 def _enrich_project_info_with_costs(projects):
     costs_by_project = query_billing_info()
     for project in projects:
+        project_name_full = project.get('name', '')
+        project_id_for_billing = project_name_full.split('/')[-1]
         project['costSincePreviousMonthFull'] =\
-            _get_cost_since_previous_month_full(costs_by_project, project)
+            _get_cost_since_previous_month_full(costs_by_project, project_id_for_billing)
         project['costSincePreviousMonth'] =\
-            _get_cost_since_previous_month_value(costs_by_project, project)
+            _get_cost_since_previous_month_value(costs_by_project, project_id_for_billing)
         project['costCurrency'] =\
-            _get_cost_currency(costs_by_project, project)
+            _get_cost_currency(costs_by_project, project_id_for_billing)
         project['costBillingAccountName'] =\
-            _get_cost_billing_account_name(costs_by_project, project)
+            _get_cost_billing_account_name(costs_by_project, project_id_for_billing)
         project['costBillingAccountId'] =\
-            _get_cost_billing_account_id(costs_by_project, project)
+            _get_cost_billing_account_id(costs_by_project, project_id_for_billing)
+
         logger.debug('Cost for Project %s: %s %s (Billing account: %s, Id: %s)',
-            project.get('projectId'), project.get('costSincePreviousMonth'),
+            project_id_for_billing, project.get('costSincePreviousMonth'),
             project.get('costCurrency'), project.get('costBillingAccountName'),
             project.get('costBillingAccountId'))
     return projects
 
-
-def _enrich_project_info_with_org_and_path(client_v1, client, projects):
-    folders = _get_folders(client)
+def _enrich_project_info_with_org_and_path(asset_client, projects, folder_map):
     for project in projects:
-        response = _get_ancestry(client_v1, folders, project)
-        project['org'] = response['org']
-        project['path'] = response['path']
-        logger.debug('Organization root for Project %s: %s',project.get('projectId'), project.get('org'))
-        logger.debug('Path for Project %s: %s',project.get('projectId'), project.get('path'))
+        project['org'] = project.get('organization', '').split('/')[-1]
+        folder_ids = [f.split('/')[-1] for f in project.get('folders', [])]
+        folder_names = [folder_map.get(fid, fid) for fid in folder_ids]
+        project['path'] = '/'.join(reversed(folder_names)) + '/' if folder_names else ''
+
+        logger.debug('Organization root for Project %s: %s', project.get('projectId'), project.get('org'))
+        logger.debug('Path for Project %s: %s', project.get('projectId'), project.get('path'))
     return projects
 
-
-def _get_cost_since_previous_month_full(costs_by_project, project):
-    project_id = project.get('projectId')
+def _get_cost_since_previous_month_full(costs_by_project, project_id):
     cost = costs_by_project.get(project_id, {})
     return cost
 
 
-def _get_cost_since_previous_month_value(costs_by_project, project):
-    cost = _get_cost_since_previous_month_full(costs_by_project, project)
+def _get_cost_since_previous_month_value(costs_by_project, project_id):
+    cost = _get_cost_since_previous_month_full(costs_by_project, project_id)
     if not cost:
         return 0.0
     else:
         return cost.get('costGenerated', 0.0)
 
 
-def _get_cost_currency(costs_by_project, project):
-    cost = _get_cost_since_previous_month_full(costs_by_project, project)
+def _get_cost_currency(costs_by_project, project_id):
+    cost = _get_cost_since_previous_month_full(costs_by_project, project_id)
     if not cost:
         return '$'
     else:
         return cost.get('currency', '$')
 
 
-def _get_cost_billing_account_name(costs_by_project, project):
-    cost = _get_cost_since_previous_month_full(costs_by_project, project)
+def _get_cost_billing_account_name(costs_by_project, project_id):
+    cost = _get_cost_since_previous_month_full(costs_by_project, project_id)
     if not cost:
         return 'Unknown'
     else:
         return cost.get('billingAccountName', 'Unknown')
 
 
-def _get_cost_billing_account_id(costs_by_project, project):
-    cost = _get_cost_since_previous_month_full(costs_by_project, project)
+def _get_cost_billing_account_id(costs_by_project, project_id):
+    cost = _get_cost_since_previous_month_full(costs_by_project, project_id)
     if not cost:
         return 'Unknown'
     else:
@@ -270,49 +306,24 @@ def _get_owners_id(owners):
     usernames = set([extract_username(user) for user in owners])
     return list(usernames)
 
-
-def _get_owners(client, project):
-    users = []
-    project_name = project.get('name')
-    iamPolicy = client.projects().getIamPolicy(resource=project_name, body={}).execute()
-    bindings = iamPolicy.get('bindings', [])
-    owners = list(filter(filter_owners, bindings))
-    if not owners:
-        logger.debug('No owners found for Project %s.', project_name)
-    else:
-        members = owners[0].get('members')
-        users = list(filter(filter_users, members))
-        if not users:
-            logger.debug('No owner is a user for Project %s.', project_name)
-    users = set([user.removeprefix('user:') for user in users])
-    return list(users)
-
-
-def _get_ancestry(client_v1, folders, project):
-    response = dict(org='No organization', path='')
-    projectId = project.get('projectId')
-    ancestry_request = client_v1.projects().getAncestry(projectId=projectId, body=None)
-    ancestry_response = ancestry_request.execute()
-
-    for resourceId in ancestry_response['ancestor']:
-        if resourceId['resourceId']['type'] in ['organization', 'project', 'folder']:
-            if resourceId['resourceId']['type'] == 'organization':
-                response['org'] = resourceId['resourceId']['id']
-            if resourceId['resourceId']['type'] == 'folder':
-                response['path'] = folders[resourceId['resourceId']['id']] + '/' + response['path']
-        else:
-            logger.debug('No organization info for project %s.', projectId)
-    return response
-
-
-def _get_folders(client):
-    folders = dict()
-    folders_request = client.folders().search(query='name:folders/*')
-    folders_response = folders_request.execute()
-    for folder in folders_response['folders']:
-        folder_number = folder['name'].split('/')[1]
-        folders[folder_number] = folder['displayName']
-    return folders
+def _get_folder_display_names(asset_client, orgs):
+    folder_map = {}
+    for org_id in orgs:
+        scope = f"organizations/{org_id}"
+        try:
+            response = asset_client.search_all_resources(
+                request={
+                    "scope": scope,
+                    "asset_types": ["cloudresourcemanager.googleapis.com/Folder"],
+                    "read_mask": "name,displayName",
+                }
+            )
+            for resource in response:
+                folder_id = resource.name.split('/')[-1]
+                folder_map[folder_id] = resource.display_name
+        except Exception as e:
+            logger.error(f"Erro ao buscar as pastas na organização {org_id}: {e}")
+    return folder_map
 
 
 def _get_created_days_ago(project):
