@@ -35,3 +35,21 @@ def print_info(projects):
             'Users={}.'.format(
             org, project_id, created_time, created_days_ago, cost_value,
             cost_currency, owners, owners_id))
+        
+
+def group_projects_by_owner(projects):
+    projects_by_owner = dict(NO_OWNER=[], VPC_BLOCKED=[])
+
+    for project in projects:
+        if project.get('vpc_blocked'):
+            projects_by_owner['VPC_BLOCKED'].append(project)
+            continue
+
+        owners = project.get('owners_id')
+        if not owners:
+            projects_by_owner['NO_OWNER'].append(project)
+        else:
+            for owner in owners:
+                prjs = projects_by_owner.setdefault(owner, [])
+                prjs.append(project)
+    return projects_by_owner
