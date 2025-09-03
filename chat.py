@@ -65,13 +65,40 @@ def send_messages_to_chat(projects_by_owner):
         logger.info('Chat integration is not active.')
         return
 
+    if 'VPC_BLOCKED' in projects_by_owner and projects_by_owner['VPC_BLOCKED']:
+        vpc_message = "The following projects could not be analyzed for owners due to security policies (VPC Service Controls):\n\n"
+        projects_to_notify_in_vpc = []
+
+        sorted_projects = sorted(projects_by_owner.get('VPC_BLOCKED'), key=lambda p: p.get('costSincePreviousMonth', 0.0), reverse=True)
+
+        for project in sorted_projects:
+            cost = project.get('costSincePreviousMonth', 0.0)
+            if cost > COST_MIN_TO_NOTIFY:
+                project_id = project.get('projectId')
+                project_display_name = project.get('displayName', project_id)
+                org = ORGS_NAME_MAPPING.get(project.get('org'))
+                path = project.get('path', '')
+                created_days_ago = int(project.get('createdDaysAgo'))
+                currency = project.get('costCurrency', '$')
+
+                vpc_message += "`{}/{}{}` created `{} days ago`, costing *`{}`* {}.\n".format(org, path, project_display_name, created_days_ago, cost, currency)
+                projects_to_notify_in_vpc.append(project)
+
+        if projects_to_notify_in_vpc:
+            vpc_message += "\nThese projects require manual verification."
+            send_message(vpc_message)
+            time.sleep(1)
+
     for owner in projects_by_owner.keys():
+        if owner in ['NO_OWNER', 'VPC_BLOCKED']:
+            continue     
         user_to_mention = USERS_MAP.get(owner, owner)
         message = _get_message(user_to_mention)
         send_message_to_this_owner = False
         sorted_projects = sorted(projects_by_owner.get(owner), key=lambda p: p.get('costSincePreviousMonth', 0.0), reverse=True)
         for project in sorted_projects:    
             project_id = project.get('projectId')
+            project_display_name = project.get('displayName', project_id)
             org = ORGS_NAME_MAPPING.get(project.get('org'))
             path = project.get('path')
             created_days_ago = int(project.get('createdDaysAgo'))
@@ -87,8 +114,7 @@ def send_messages_to_chat(projects_by_owner):
                 if cost > COST_ALERT_THRESHOLD:
                     emoji = ' ' + cost_alert_emoji
                 send_message_to_this_owner = True
-                message += "`{}/{}{}` created `{} days ago`, costing *`{}`* {}.{}\n\n"\
-                    .format(org, path, project_id, created_days_ago, cost, currency, emoji)
+                message += "`{}/{}{}` created `{} days ago`, costing *`{}`* {}.{}\n\n".format(org, path, project_display_name, created_days_ago, cost, currency, emoji)
                 number_of_notified_projects = number_of_notified_projects + 1
                 total_cost_of_notified_projects += cost
         message += "\nIf these projects are not being used anymore, please consider `deleting them to reduce infra costs` and clutter."
