@@ -57,18 +57,20 @@ def http_request(request):
     status_code = ''
     try:
         message, status_code =  main()
-    except Exception as err:
-        logging.exception(err)
-        exception_message =  tb.format_exc().splitlines()
-        message = exception_message[-1].capitalize()
-        message = message.replace('<',' ')
-        message = message.replace('>',' ')
-        message = 'An error occurred. Details: ' + message
-        for item in message.split():
-            if item.isnumeric():
-               status_code = item
-            else:
-                status_code = 500
+    except Exception:
+        error_traceback = tb.format_exc()
+        log_entry = {
+            'severity': 'ERROR',
+            'message': error_traceback,
+            'context': {
+                'reportLocation': {
+                    'filePath': 'main.py',
+                    'functionName': 'http_request'
+                }
+            }
+        }
+        print(json.dumps(log_entry))
+        message = 'An error occurred. Please check the logs for details.'
     finally:
         message = (message + ' on ' +  date_value + '!')
     return message, status_code
