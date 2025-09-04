@@ -22,9 +22,6 @@ from utils import (
 from filters import (
     filter_projects_matching_org_level,
     filter_older_than,
-    filter_owners,
-    filter_users,
-    filter_whitelisted_projects,
     filter_whitelisted_users
 )
 from billing import query_billing_info
