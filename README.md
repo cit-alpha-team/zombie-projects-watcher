@@ -30,7 +30,7 @@ The following APIs must be enabled in your project:
 * Cloud Run Admin API: `run.googleapis.com`
 * Cloud Build API: `cloudbuild.googleapis.com`
 * Cloud Scheduler API: `cloudscheduler.googleapis.com`
-* Cloud Resource Manager API: `cloudresourcemanager.googleapis.com`
+* Cloud Asset API: `cloudasset.googleapis.com`
 * BigQuery API: `bigquery.googleapis.com`
 * Identity and Access Management (IAM) API: `iam.googleapis.com`
 * Secret Manager API: `secretmanager.googleapis.com`
@@ -45,7 +45,7 @@ gcloud services enable \
     run.googleapis.com \
     cloudbuild.googleapis.com \
     cloudscheduler.googleapis.com \
-    cloudresourcemanager.googleapis.com \
+    cloudasset.googleapis.com \
     bigquery.googleapis.com \
     iam.googleapis.com \
     secretmanager.googleapis.com \
@@ -61,11 +61,12 @@ The Terraform script will automatically create a service account and assign it a
 
 The following roles will be assigned to the bot's service account by Terraform:
 
-* **Organization Viewer** (`roles/viewer`): To list all projects across the organization.
+* **Cloud Asset Viewer** (`roles/cloudasset.viewer`): To list projects, folders, and their IAM policies across the organization.
 * **BigQuery User** (`roles/bigquery.user`): To execute cost-related queries on the billing export dataset.
+* **BigQuery Data Viewer** (`roles/bigquery.dataViewer`): To read the results of the cost queries.
 * **Cloud Run Invoker** (`roles/run.invoker`): To make authenticated calls from Cloud Scheduler.
 * **Secret Manager Secret Accessor** (`roles/secretmanager.secretAccessor`): To access the webhook URL secret.
-* **Storage Object Viewer** (`roles/storage.objectViewer`): Provisioned by Terraform for future use (dynamic configuration from GCS).
+* **Storage Admin** (`roles/storage.admin`): To read the function's configuration from a GCS bucket.
 
 
 ## Prerequisite: Setting Up Billing Data in BigQuery
@@ -199,7 +200,7 @@ Creates human-readable aliases for your numeric organization IDs.
 
 1.  **Configuration**: The `config.yaml` file, which is bundled with the function source code.
 2.  **Google Cloud Data**:
-      * The list of projects, folders, and organizations obtained via the Cloud Resource Manager API.
+      * The list of projects, folders, and organizations obtained via the Cloud Asset API.
       * Cost data obtained from your billing export view in BigQuery.
 
 ### Outputs
