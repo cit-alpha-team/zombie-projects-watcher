@@ -86,7 +86,6 @@ def main():
 
     logger.info('Retrieving Project owners information.')
     enriched_projects = _enrich_project_info_with_owners(asset_client, enriched_projects)
-    
     if ORGS_ACTIVATED:
         logger.info('Retrieving Project organization information.')
         enriched_projects = _enrich_project_info_with_org_and_path(asset_client, enriched_projects, folder_map)
