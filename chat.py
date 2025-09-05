@@ -130,3 +130,4 @@ than the defined notification threshold of ${COST_MIN_TO_NOTIFY} 🪙, totaling 
 
 *Note*: Including only costs from the beginning of the previous month.'''
     send_message(final_of_execution_message)
+    
